@@ -41,8 +41,8 @@ def process_replay(replay, output_dir: str, existing_hashes):
         format='%(asctime)s %(levelname)s %(threadName)s %(message)s',
         level=logging.DEBUG)
 
+    file_path = os.path.join(output_dir, 'replays', f'{hash}.replay')
     try:
-        file_path = os.path.join(output_dir, 'replays', f'{hash}.replay')
 
         if os.path.exists(file_path):
             log.info(f'{file_path} already exists')
@@ -58,6 +58,8 @@ def process_replay(replay, output_dir: str, existing_hashes):
         return ReplayRecord.create(replay)
     except Exception as e:
         log.error(f'Failed to process {replay}', exc_info=e)
+        if os.path.exists(file_path):
+            os.remove(file_path)
         return None
 
 
