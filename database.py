@@ -31,13 +31,17 @@ class ReplayRecord(Base):
 class Database(object):
 
     def __init__(self, dir: str):
-        self.engine = create_engine(f'sqlite:///{dir}/replays.sqlite')
+        self.engine = create_engine(f'sqlite:///{dir}/replays.sqlite', connect_args={'timeout': 60})
         Base.metadata.create_all(self.engine)
         self.Session = scoped_session(sessionmaker(bind=self.engine))
 
-    def get(self, hash: str):
-        return self.Session().query(ReplayRecord).get(hash)
+    def get_existing_hashes(self):
+        return set(map(lambda x: x.hash, self.Session().query(ReplayRecord)))
 
     def add(self, record: ReplayRecord):
         self.Session().add(record)
         self.Session().commit()
+
+    def close(self):
+        self.Session().close()
+        self.engine.dispose()
