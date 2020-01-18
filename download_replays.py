@@ -81,6 +81,12 @@ if __name__ == '__main__':
     parser.add_argument('--log', '-l', type=str, required=True)
     args = parser.parse_args()
 
+    os.makedirs(args.output_dir, exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, 'replays'), exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, 'logs'), exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, 'stats'), exist_ok=True)
+    os.makedirs(os.path.join(args.output_dir, 'df'), exist_ok=True)
+
     logging.basicConfig(handlers=[logging.StreamHandler(), logging.FileHandler(args.log, encoding='utf-8')],
                         format='%(asctime)s %(levelname)s %(threadName)s %(message)s',
                         level=logging.DEBUG)
@@ -89,19 +95,26 @@ if __name__ == '__main__':
 
     db = Database(args.output_dir)
 
-    os.makedirs(args.output_dir, exist_ok=True)
-    os.makedirs(os.path.join(args.output_dir, 'replays'), exist_ok=True)
-    os.makedirs(os.path.join(args.output_dir, 'logs'), exist_ok=True)
-    os.makedirs(os.path.join(args.output_dir, 'stats'), exist_ok=True)
-    os.makedirs(os.path.join(args.output_dir, 'df'), exist_ok=True)
+    page = 1
 
-    json_response = requests.get(f'{HOST}/api/v1/replays?key={args.api_key}&playlist=28').json()
+    json_response = requests.get(f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28').json()
     get_replays_from_response(json_response, args.output_dir, db, args.processes)
-    next_url = json_response.get('next', None)
 
-    while next_url:
-        json_response = requests.get(f'{HOST}{next_url}').json()
+    next_url = json_response.get("next", None)
+
+    if next_url:
+        page += 1
+        next_url = f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28'
+
+    while True:
+        json_response = requests.get(next_url).json()
         get_replays_from_response(json_response, args.output_dir, db, args.processes)
         next_url = json_response.get('next', None)
+
+        if not next_url:
+            break
+
+        page += 1
+        next_url = f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28'
 
     db.close()
