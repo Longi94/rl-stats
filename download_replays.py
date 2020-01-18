@@ -36,9 +36,10 @@ def process_replay(replay, output_dir: str, existing_hashes):
     if hash in existing_hashes is not None:
         return None
 
-    logging.basicConfig(handlers=[logging.FileHandler(os.path.join(output_dir, 'logs', f'{hash}.log'))],
-                        format='%(asctime)s %(levelname)s %(threadName)s %(message)s',
-                        level=logging.DEBUG)
+    logging.basicConfig(
+        handlers=[logging.FileHandler(os.path.join(output_dir, 'logs', f'{hash}.log'), encoding='utf-8')],
+        format='%(asctime)s %(levelname)s %(threadName)s %(message)s',
+        level=logging.DEBUG)
 
     try:
         file_path = os.path.join(output_dir, 'replays', f'{hash}.replay')
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--log', '-l', type=str, required=True)
     args = parser.parse_args()
 
-    logging.basicConfig(handlers=[logging.StreamHandler(), logging.FileHandler(args.log)],
+    logging.basicConfig(handlers=[logging.StreamHandler(), logging.FileHandler(args.log, encoding='utf-8')],
                         format='%(asctime)s %(levelname)s %(threadName)s %(message)s',
                         level=logging.DEBUG)
 
