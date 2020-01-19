@@ -4,6 +4,7 @@ import logging
 import os
 import gzip
 import carball
+import math
 from multiprocessing import Pool
 from functools import partial
 from database import Database, ReplayRecord
@@ -60,8 +61,8 @@ def process_replay(replay, output_dir: str, existing_hashes):
         return None
 
 
-def get_replays_from_response(response, output_dir: str, db: Database, process_count: int = 1):
-    log.info(f"Downloading replays from page {response['page']}")
+def get_replays_from_response(response, output_dir: str, db: Database, total_page: int, process_count: int = 1):
+    log.info(f"Downloading replays from page {response['page']}/{total_page}")
     existing = db.get_existing_hashes()
     with Pool(processes=process_count) as p:
         for record in p.imap_unordered(partial(process_replay, output_dir=output_dir, existing_hashes=existing),
@@ -96,7 +97,11 @@ if __name__ == '__main__':
     page = args.page
 
     json_response = requests.get(f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28&num=200').json()
-    get_replays_from_response(json_response, args.output_dir, db, args.processes)
+
+    total = json_response['total_count']
+    total_page = math.ceil(total / 200)
+
+    get_replays_from_response(json_response, args.output_dir, db, total_page, args.processes)
 
     next_url = json_response.get("next", None)
 
@@ -106,7 +111,7 @@ if __name__ == '__main__':
 
     while True:
         json_response = requests.get(next_url).json()
-        get_replays_from_response(json_response, args.output_dir, db, args.processes)
+        get_replays_from_response(json_response, args.output_dir, db, total_page, args.processes)
         next_url = json_response.get('next', None)
 
         if not next_url:
