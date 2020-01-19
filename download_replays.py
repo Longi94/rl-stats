@@ -54,12 +54,9 @@ def process_replay(replay, output_dir: str, existing_hashes):
                 f.write(replay_response.content)
 
         carball_parse(hash, output_dir)
-        os.remove(file_path)
         return ReplayRecord.create(replay)
     except Exception as e:
         log.error(f'Failed to process {replay}', exc_info=e)
-        if os.path.exists(file_path):
-            os.remove(file_path)
         return None
 
 
