@@ -78,6 +78,7 @@ if __name__ == '__main__':
     parser.add_argument('--api-key', '-a', type=str, required=True)
     parser.add_argument('--output-dir', '-o', type=str, required=True)
     parser.add_argument('--processes', '-p', type=int, default=1)
+    parser.add_argument('--page', type=int, default=1)
     parser.add_argument('--log', '-l', type=str, required=True)
     args = parser.parse_args()
 
@@ -95,16 +96,16 @@ if __name__ == '__main__':
 
     db = Database(args.output_dir)
 
-    page = 1
+    page = args.page
 
-    json_response = requests.get(f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28').json()
+    json_response = requests.get(f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28&num=200').json()
     get_replays_from_response(json_response, args.output_dir, db, args.processes)
 
     next_url = json_response.get("next", None)
 
     if next_url:
         page += 1
-        next_url = f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28'
+        next_url = f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28&num=200'
 
     while True:
         json_response = requests.get(next_url).json()
@@ -115,6 +116,6 @@ if __name__ == '__main__':
             break
 
         page += 1
-        next_url = f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28'
+        next_url = f'{HOST}/api/v1/replays?key={args.api_key}&page={page}&playlist=28&num=200'
 
     db.close()
