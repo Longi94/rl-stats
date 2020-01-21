@@ -114,7 +114,7 @@ if __name__ == '__main__':
         get_replays_from_response(json_response, args.output_dir, db, total_page, args.processes)
         next_url = json_response.get('next', None)
 
-        if not next_url:
+        if not next_url or len(json_response['data']) == 0:
             break
 
         page += 1
