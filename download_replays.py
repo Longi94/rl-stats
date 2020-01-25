@@ -69,6 +69,7 @@ def get_replays_from_response(response, output_dir: str, db: Database, total_pag
                                        response['data'], 1):
             if record is not None:
                 db.add(record)
+                db.commit()
 
 
 if __name__ == '__main__':

@@ -1,10 +1,47 @@
 import json
 import dateutil
-from sqlalchemy import create_engine, Column, String, DateTime, Integer
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Float, Boolean
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
+
+
+class ItemRecord(Base):
+    __tablename__ = 'item'
+    hash = Column(String, primary_key=True)
+    player_id = Column(String, primary_key=True)
+    frame_get = Column(Integer, primary_key=True)
+    map = Column(Integer)
+    frame_use = Column(Integer)
+    item = Column(Integer)
+    use_x = Column(Float)
+    use_y = Column(Float)
+    use_z = Column(Float)
+    wait_time = Column(Float)
+    is_kickoff = Column(Boolean)
+    is_orange = Column(Boolean)
+    avg_mmr = Column(Float)
+    avg_rank = Column(Integer)
+
+    @staticmethod
+    def create(from_: dict):
+        record = ItemRecord()
+        record.hash = from_['hash']
+        record.map = from_['map']
+        record.player_id = from_['player_id']
+        record.frame_get = from_['frame_get']
+        record.frame_use = from_['frame_use']
+        record.item = from_['item']
+        record.use_x = from_['use_x']
+        record.use_y = from_['use_y']
+        record.use_z = from_['use_z']
+        record.wait_time = from_['wait_time']
+        record.is_kickoff = from_['is_kickoff']
+        record.is_orange = from_['is_orange']
+        record.avg_mmr = from_['avg_mmr']
+        record.avg_rank = from_['avg_rank']
+        return record
 
 
 class ReplayRecord(Base):
@@ -27,6 +64,16 @@ class ReplayRecord(Base):
         record.playlist = 28
         return record
 
+    def as_dict(self):
+        return {
+            'hash': self.hash,
+            'mmrs': self.mmrs,
+            'ranks': self.ranks,
+            'match_date': self.match_date,
+            'upload_date': self.upload_date,
+            'playlist': self.playlist
+        }
+
 
 class Database(object):
 
@@ -40,8 +87,16 @@ class Database(object):
 
     def add(self, record: ReplayRecord):
         self.Session().add(record)
-        self.Session().commit()
 
     def close(self):
         self.Session().close()
         self.engine.dispose()
+
+    def get_replays(self):
+        return self.Session().query(ReplayRecord)
+
+    def add_event(self, record: ItemRecord):
+        self.Session().add(record)
+
+    def commit(self):
+        self.Session().commit()
