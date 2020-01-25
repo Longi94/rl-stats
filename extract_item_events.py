@@ -10,7 +10,7 @@ from functools import partial
 from multiprocessing import Pool
 from carball.analysis.utils.pandas_manager import PandasManager
 from carball.analysis.utils.proto_manager import ProtobufManager
-from database import Database, ReplayRecord, ItemRecord
+from database import Database, ReplayRecord, ItemRecord, ItemsExtracted
 from map import maps
 
 STEAM_ID_PATTERN = re.compile('^7656119[0-9]+$')
@@ -42,11 +42,24 @@ def process_replay(replay: ReplayRecord, directory: str):
         rank_mmr = list(zip(replay['mmrs'], replay['ranks']))
         rank_mmr = list(filter(lambda x: x[0] is not None and x[0] > 0, rank_mmr))
 
+        replay_data = {
+            'hash': replay['hash'],
+            'map': None,
+            'avg_mmr': None,
+            'avg_rank': None
+        }
+
         if len(rank_mmr) == 0:
-            return None
+            return None, replay_data
 
         if all(map(lambda x: x[1] == 0, rank_mmr)):
-            return None
+            return None, replay_data
+
+        avg_mmr = np.average(list(map(lambda x: x[0], rank_mmr))).item()
+        avg_rank = round(np.average(list(filter(lambda x: x > 0, map(lambda x: x[1], rank_mmr)))).item())
+
+        replay_data['avg_mmr'] = avg_mmr
+        replay_data['avg_rank'] = avg_rank
 
         with gzip.open(os.path.join(directory, f'df/{replay["hash"]}.gzip'), 'rb') as f:
             frames = PandasManager.read_numpy_from_memory(f)
@@ -54,19 +67,16 @@ def process_replay(replay: ReplayRecord, directory: str):
         with open(os.path.join(directory, f'stats/{replay["hash"]}.pts'), 'rb') as f:
             proto = ProtobufManager.read_proto_out_from_file(f)
 
+        replay_data['map'] = maps.inverse[proto.game_metadata.map]
+
         ids = dict(map(lambda x: (x.id.id, (x.name, x.is_orange)), proto.players))
 
         events = []
-
-        avg_mmr = np.average(list(map(lambda x: x[0], rank_mmr))).item()
-        avg_rank = round(np.average(list(filter(lambda x: x > 0, map(lambda x: x[1], rank_mmr)))).item())
 
         for event in proto.game_stats.rumble_items:
             df = frames[ids[event.player_id.id][0]]
 
             item_event = {
-                'hash': replay['hash'],
-                'map': maps.inverse[proto.game_metadata.map],
                 'player_id': event.player_id.id,
                 'frame_get': event.frame_number_get,
                 'frame_use': event.frame_number_use,
@@ -77,8 +87,6 @@ def process_replay(replay: ReplayRecord, directory: str):
                 'wait_time': None,
                 'is_kickoff': is_kickoff_item(event.frame_number_get, proto, event.player_id.id),
                 'is_orange': ids[event.player_id.id][1] == 1,
-                'avg_mmr': avg_mmr,
-                'avg_rank': avg_rank
             }
 
             if event.frame_number_use > -1:
@@ -90,21 +98,32 @@ def process_replay(replay: ReplayRecord, directory: str):
 
             events.append(item_event)
 
-        return events
+        return events, replay_data
     except Exception as e:
         log.error(f'Failed to handle {replay["hash"]}', exc_info=e)
-        return None
+        return None, None
 
 
-def add_to_db(events, db: Database):
-    if events is None:
-        return
+def add_to_db(events, db: Database, replay_data):
     try:
-        for event in events:
-            db.add(ItemRecord.create(event))
+        if replay_data is None:
+            return
+
+        extracted = ItemsExtracted.create(replay_data)
+        db.Session().add(extracted)
         db.commit()
-    except Exception:
-        pass
+
+        if events is None:
+            return
+
+        for event in events:
+            record = ItemRecord.create(event)
+            record.parent_id = extracted.id
+            record.parent = extracted
+            db.add(record)
+        db.commit()
+    except Exception as e:
+        log.error('', exc_info=e)
 
 
 if __name__ == '__main__':
@@ -123,16 +142,17 @@ if __name__ == '__main__':
 
     if args.processes > 1:
         with Pool(args.processes) as p:
-            for events in p.imap_unordered(partial(process_replay, directory=args.directory), replays, chunksize=10):
-                add_to_db(events, db)
+            for events, replay_data in p.imap_unordered(partial(process_replay, directory=args.directory), replays,
+                                                        chunksize=10):
+                add_to_db(events, db, replay_data)
                 progress += 1
                 sys.stdout.write(f'\r{progress}/{len(replays)}')
                 sys.stdout.flush()
 
     else:
         for replay in replays:
-            events = process_replay(replay, args.directory)
-            add_to_db(events, db)
+            events, replay_data = process_replay(replay, args.directory)
+            add_to_db(events, db, replay_data)
             progress += 1
             sys.stdout.write(f'\r{progress}/{len(replays)}')
             sys.stdout.flush()

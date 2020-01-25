@@ -1,18 +1,37 @@
 import json
 import dateutil
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, Float, Boolean
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, Float, Boolean, ForeignKey
+from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
 
+class ItemsExtracted(Base):
+    __tablename__ = 'items_extracted'
+    id = Column(Integer, primary_key=True)
+    hash = Column(String, unique=True)
+    avg_mmr = Column(Float)
+    avg_rank = Column(Integer)
+    map = Column(Integer)
+    children = relationship('ItemRecord', back_populates='parent')
+
+    @staticmethod
+    def create(from_: dict):
+        record = ItemsExtracted()
+        record.hash = from_['hash']
+        record.map = from_['map']
+        record.avg_mmr = from_['avg_mmr']
+        record.avg_rank = from_['avg_rank']
+        return record
+
+
 class ItemRecord(Base):
     __tablename__ = 'item'
-    hash = Column(String, primary_key=True)
+    parent_id = Column(Integer, ForeignKey('items_extracted.id'), primary_key=True)
+    parent = relationship('ItemsExtracted', back_populates='children')
     player_id = Column(String, primary_key=True)
     frame_get = Column(Integer, primary_key=True)
-    map = Column(Integer)
     frame_use = Column(Integer)
     item = Column(Integer)
     use_x = Column(Float)
@@ -21,14 +40,10 @@ class ItemRecord(Base):
     wait_time = Column(Float)
     is_kickoff = Column(Boolean)
     is_orange = Column(Boolean)
-    avg_mmr = Column(Float)
-    avg_rank = Column(Integer)
 
     @staticmethod
     def create(from_: dict):
         record = ItemRecord()
-        record.hash = from_['hash']
-        record.map = from_['map']
         record.player_id = from_['player_id']
         record.frame_get = from_['frame_get']
         record.frame_use = from_['frame_use']
@@ -39,8 +54,6 @@ class ItemRecord(Base):
         record.wait_time = from_['wait_time']
         record.is_kickoff = from_['is_kickoff']
         record.is_orange = from_['is_orange']
-        record.avg_mmr = from_['avg_mmr']
-        record.avg_rank = from_['avg_rank']
         return record
 
 
