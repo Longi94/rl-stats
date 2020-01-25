@@ -109,9 +109,12 @@ def add_to_db(events, db: Database, replay_data):
         if replay_data is None:
             return
 
-        extracted = ItemsExtracted.create(replay_data)
-        db.Session().add(extracted)
-        db.commit()
+        extracted = db.Session().query(ItemsExtracted).filter_by(hash=replay_data['hash']).first()
+
+        if extracted is None:
+            extracted = ItemsExtracted.create(replay_data)
+            db.Session().add(extracted)
+            db.commit()
 
         if events is None:
             return
@@ -124,6 +127,8 @@ def add_to_db(events, db: Database, replay_data):
         db.commit()
     except Exception as e:
         log.error('', exc_info=e)
+    except KeyboardInterrupt:
+        db.Session().rollback()
 
 
 if __name__ == '__main__':
@@ -134,7 +139,10 @@ if __name__ == '__main__':
 
     db = Database(args.directory)
 
-    replays = list(map(lambda x: x.as_dict(), db.get_replays()))
+    processed = db.Session().query(ItemRecord.parent_id, ItemsExtracted.hash).join(ItemsExtracted).distinct()
+    processed = set(map(lambda x: x.hash, processed))
+
+    replays = list(filter(lambda x: x['hash'] not in processed, map(lambda x: x.as_dict(), db.get_replays())))
 
     # process_replay(next(filter(lambda x: x['hash'] == 'AF9E2D4211E8C1AF5DB54DB4C37FF21A', replays)), args.directory)
 
