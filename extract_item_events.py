@@ -22,8 +22,11 @@ def is_steam_id(player_id: str):
 
 
 def is_kickoff_item(frame_get: int, proto, id: str):
-    kickoff_frame = next(frame for frame in map(lambda x: x.start_frame_number, reversed(proto.game_stats.kickoffs)) if
-                         frame < frame_get)
+    try:
+        kickoff_frame = next(frame for frame in map(lambda x: x.start_frame_number, reversed(proto.game_stats.kickoffs)) if
+                             frame < frame_get)
+    except StopIteration:
+        return False
 
     item_get_frames = list(
         map(lambda x: x.frame_number_get, filter(lambda x: x.player_id.id == id, proto.game_stats.rumble_items)))
@@ -127,7 +130,6 @@ def add_to_db(events, db: Database, replay_data):
         db.commit()
     except Exception as e:
         log.error('', exc_info=e)
-    except KeyboardInterrupt:
         db.Session().rollback()
 
 
@@ -144,7 +146,7 @@ if __name__ == '__main__':
 
     replays = list(filter(lambda x: x['hash'] not in processed, map(lambda x: x.as_dict(), db.get_replays())))
 
-    # process_replay(next(filter(lambda x: x['hash'] == 'AF9E2D4211E8C1AF5DB54DB4C37FF21A', replays)), args.directory)
+    # process_replay(next(filter(lambda x: x['hash'] == 'AC37C42811E9603488AB2C8907F79D1C', replays)), args.directory)
 
     progress = 0
 
