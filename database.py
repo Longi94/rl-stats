@@ -14,6 +14,7 @@ class ItemsExtracted(Base):
     avg_mmr = Column(Float)
     avg_rank = Column(Integer)
     map = Column(Integer)
+    match_date = Column(DateTime)
     children = relationship('ItemRecord', back_populates='parent')
 
     @staticmethod
