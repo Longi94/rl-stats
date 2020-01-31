@@ -9,13 +9,14 @@ Base = declarative_base()
 
 class ItemsExtracted(Base):
     __tablename__ = 'items_extracted'
-    id = Column(Integer, primary_key=True)
-    hash = Column(String, unique=True)
+    id = Column(Integer, primary_key=True, index=True)
+    hash = Column(String, unique=True, index=True)
     avg_mmr = Column(Float)
-    avg_rank = Column(Integer)
+    avg_rank = Column(Integer, index=True)
     map = Column(Integer)
-    match_date = Column(DateTime)
+    match_date = Column(DateTime, index=True)
     children = relationship('ItemRecord', back_populates='parent')
+    goals = relationship('GoalRecord', back_populates='parent')
 
     @staticmethod
     def create(from_: dict):
@@ -29,12 +30,12 @@ class ItemsExtracted(Base):
 
 class ItemRecord(Base):
     __tablename__ = 'item'
-    parent_id = Column(Integer, ForeignKey('items_extracted.id'), primary_key=True)
+    parent_id = Column(Integer, ForeignKey('items_extracted.id'), primary_key=True, index=True)
     parent = relationship('ItemsExtracted', back_populates='children')
-    player_id = Column(String, primary_key=True)
-    frame_get = Column(Integer, primary_key=True)
+    player_id = Column(String, primary_key=True, index=True)
+    frame_get = Column(Integer, primary_key=True, index=True)
     frame_use = Column(Integer)
-    item = Column(Integer)
+    item = Column(Integer, index=True)
     use_x = Column(Float)
     use_y = Column(Float)
     use_z = Column(Float)
@@ -54,6 +55,25 @@ class ItemRecord(Base):
         record.use_z = from_['use_z']
         record.wait_time = from_['wait_time']
         record.is_kickoff = from_['is_kickoff']
+        record.is_orange = from_['is_orange']
+        return record
+
+
+class GoalRecord(Base):
+    __tablename__ = 'goal'
+    parent_id = Column(Integer, ForeignKey('items_extracted.id'), primary_key=True, index=True)
+    parent = relationship('ItemsExtracted', back_populates='goals')
+    player_id = Column(String, primary_key=True)
+    frame = Column(Integer, primary_key=True)
+    item = Column(Integer, index=True)
+    pre_item = Column(Boolean)
+    is_orange = Column(Boolean)
+
+    @staticmethod
+    def create(from_: dict):
+        record = GoalRecord()
+        record.player_id = from_['player_id']
+        record.item = from_['item']
         record.is_orange = from_['is_orange']
         return record
 
