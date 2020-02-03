@@ -17,6 +17,7 @@ class ItemsExtracted(Base):
     match_date = Column(DateTime, index=True)
     children = relationship('ItemRecord', back_populates='parent')
     goals = relationship('GoalRecord', back_populates='parent')
+    orange_winner = Column(Boolean)
 
     @staticmethod
     def create(from_: dict):
