@@ -46,7 +46,11 @@ def process(replay_hash: str, directory: str):
 
     for player in players:
         pdf = df[player]
-        pdf.drop('time_till_power_up', axis=1, inplace=True)
+        if 'power_up_active' not in pdf.columns:
+            continue
+        if 'power_up' not in pdf.columns:
+            continue
+        pdf.drop('time_till_power_up', axis=1, inplace=True, errors='ignore')
         while len(pdf.loc[(pdf['power_up_active'].shift(1) == True) & (pdf['power_up_active'] == False)]) > 0:
             pdf = pdf.loc[(pdf['power_up_active'].shift(1) != True) | (pdf['power_up_active'] != False)]
 
