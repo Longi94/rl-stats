@@ -68,6 +68,7 @@ def process(replay_hash: str, directory: str):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-d', '--directory', type=str, required=True)
+    parser.add_argument('-p', '--processes', type=int, required=True)
     args = parser.parse_args()
 
     db = Database(args.directory)
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     heatmaps = [None] * 11
 
     items = list(map(lambda x: x.hash, db.Session().query(ItemsExtracted)))
-    with Pool(2) as p:
+    with Pool(args.processes) as p:
         for h in p.imap_unordered(partial(process, directory=args.directory), items):
             if h is None:
                 continue
@@ -94,5 +95,4 @@ if __name__ == '__main__':
             sys.stdout.flush()
 
     for i in range(11):
-        with open(f'heatmap{i}', 'w') as f:
-            np.save(f, heatmaps[i])
+        np.save(f'heatmap{i}', heatmaps[i])
