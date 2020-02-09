@@ -4,9 +4,11 @@ import gzip
 import argparse
 import pandas as pd
 import numpy as np
+from map import standard_maps, maps
 from functools import partial
 from multiprocessing import Pool
 from database import Database, ItemsExtracted
+from carball.analysis.utils.proto_manager import ProtobufManager
 from carball.analysis.utils.pandas_manager import PandasManager
 
 item_map = {
@@ -24,28 +26,27 @@ item_map = {
     'tornado': 11
 }
 
-heatmap_range = ((-6500, 6500), (-4500, 4500))
-heatmap_bins = (int(13000 / 50), int(9000 / 50))
+heatmap_range = ((-4500, 4500), (-6500, 6500))
+heatmap_bins = (int(9000 / 50), int(13000 / 50))
 
 
 def process(replay_hash: str, directory: str):
     try:
+        with open(os.path.join(directory, f'stats/{replay_hash}.pts'), 'rb') as f:
+            proto = ProtobufManager.read_proto_out_from_file(f)
+
         with gzip.open(os.path.join(directory, f'df/{replay_hash}.gzip'), 'rb') as f:
             df = PandasManager.read_numpy_from_memory(f)
     except Exception as e:
         return
-
-    players = set(df.columns.get_level_values(0).values)
-    players.remove('ball')
-    players.remove('game')
 
     item_dfs = []
 
     for i in range(11):
         item_dfs.append(pd.DataFrame(columns=['pos_x', 'pos_y', 'pos_z']))
 
-    for player in players:
-        pdf = df[player]
+    for player in proto.players:
+        pdf = df[player.name]
         if 'power_up_active' not in pdf.columns:
             continue
         if 'power_up' not in pdf.columns:
@@ -55,6 +56,10 @@ def process(replay_hash: str, directory: str):
             pdf = pdf.loc[(pdf['power_up_active'].shift(1) != True) | (pdf['power_up_active'] != False)]
 
         pdf = pdf[pdf['power_up_active'] == False]
+
+        if player.is_orange:
+            pdf['pos_y'] = -pdf['pos_y']
+            pdf['pos_x'] = -pdf['pos_x']
 
         for item_name in item_map.keys():
             item_dfs[item_map[item_name] - 1] = item_dfs[item_map[item_name] - 1] \
@@ -74,11 +79,12 @@ if __name__ == '__main__':
     db = Database(args.directory)
 
     processed = 0
-    total = db.Session().query(ItemsExtracted).count()
 
     heatmaps = [None] * 11
 
-    items = list(map(lambda x: x.hash, db.Session().query(ItemsExtracted)))
+    items = list(
+        map(lambda x: x.hash, filter(lambda x: maps[x.map] in standard_maps, db.Session().query(ItemsExtracted))))
+    total = len(items)
     with Pool(args.processes) as p:
         for h in p.imap_unordered(partial(process, directory=args.directory), items):
             if h is None:
@@ -95,4 +101,4 @@ if __name__ == '__main__':
             sys.stdout.flush()
 
     for i in range(11):
-        np.save(f'heatmap{i}', heatmaps[i])
+        np.save(f'rumble/heatmap{i}', heatmaps[i])
