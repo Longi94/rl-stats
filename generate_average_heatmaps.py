@@ -40,6 +40,17 @@ def process(replay_hash: str, directory: str):
     except Exception as e:
         return
 
+    if len(proto.game_stats.kickoffs) > 0:
+        df.drop(df.loc[0:proto.game_stats.kickoffs[0].start_frame_number].index, inplace=True, errors='ignore')
+
+        for i, goal in enumerate(proto.game_metadata.goals):
+            if len(proto.game_stats.kickoffs) > i + 1:
+                kickoff = proto.game_stats.kickoffs[i + 1].start_frame_number
+            else:
+                kickoff = df.index[-1].item()
+
+            df.drop(df.loc[goal.frame_number:kickoff].index, inplace=True, errors='ignore')
+
     item_dfs = []
 
     for i in range(11):
